@@ -1,36 +1,25 @@
 # Bitcoin Market Sentiment vs Hyperliquid Trader Performance
 
-Exploring the relationship between Bitcoin Fear & Greed sentiment and trader
-performance on Hyperliquid, to uncover patterns that could inform smarter
-trading strategies.
+This project looks at whether Bitcoin market sentiment (Fear/Greed Index) has any relationship with how traders perform on Hyperliquid.
 
-## Datasets
+## Data used
 
-| File | Description | Rows |
-|---|---|---|
-| `fear_greed_index.csv` | Daily Bitcoin market sentiment (`Fear` / `Extreme Fear` / `Neutral` / `Greed` / `Extreme Greed`) | 2,644 |
-| `historical_data.csv` | Individual Hyperliquid trades: account, coin, execution price, size, side, direction, closed PnL, fee, timestamp | 211,224 |
+- `fear_greed_index.csv` - daily sentiment classification (Extreme Fear, Fear, Neutral, Greed, Extreme Greed), 2,644 rows
+- `historical_data.csv` - individual trade records from Hyperliquid: account, coin, execution price, size, side, direction, closed PnL, fee, timestamp, 211,224 rows
+- `merged_trades_sentiment.csv.gz` - the trade data merged with sentiment on date, zipped because the raw file was 60MB and too large to upload directly. Nothing is removed, it's just compressed.
 
-## Methodology
+## Approach
 
-1. **Cleaning** — standardized column names, parsed `Timestamp IST`
-   (`DD-MM-YYYY HH:MM`) into proper datetimes, coerced numeric columns
-   (`Closed PnL`, `Size USD`, etc.) to numeric types.
-2. **Sentiment simplification** — collapsed the 5-level classification into
-   3 buckets (`Fear`, `Neutral`, `Greed`) by merging "Extreme Fear" into
-   "Fear" and "Extreme Greed" into "Greed", to make comparisons cleaner.
-3. **Merge** — joined every trade to that day's sentiment classification on
-   date. 211,218 of 211,224 trades (99.997%) matched successfully.
-4. **Analysis** — grouped by sentiment to compare average/total PnL, win
-   rate, trade size, long/short direction mix, and per-account and per-coin
-   performance. Ran an independent two-sample t-test to check whether the
-   Fear vs Greed PnL difference is statistically significant.
-5. **Visualization** — 4 charts covering average PnL, win rate, a daily PnL
-   timeline, and trade size distribution, all split by sentiment.
+1. Cleaned column names and parsed the timestamp columns into proper dates.
+2. Grouped sentiment into Fear / Neutral / Greed instead of 5 categories, to keep comparisons simple.
+3. Merged every trade with the sentiment for that date. Only 6 out of 211,224 trades didn't have a matching date.
+4. Compared average PnL, win rate, trade size, and long/short behavior across the three sentiment groups.
+5. Ran a t-test to check if the PnL difference between Fear and Greed was actually meaningful or just noise.
+6. Made a few charts to visualize the differences.
 
-Full code: [`sentiment_trader_analysis.py`](./sentiment_trader_analysis.py)
+Code: [`sentiment_trader_analysis.py`](./sentiment_trader_analysis.py)
 
-## Key Findings
+## Results
 
 | Sentiment | Trades | Avg PnL/trade | Win rate | Avg trade size (USD) |
 |---|---|---|---|---|
@@ -38,64 +27,30 @@ Full code: [`sentiment_trader_analysis.py`](./sentiment_trader_analysis.py)
 | Greed | 90,295 | $53.88 | 42.0% | $4,574 |
 | Neutral | 37,686 | $34.31 | 39.7% | $4,783 |
 
-1. **Sentiment alone is a weak predictor of profitability.** Greed days show
-   slightly higher average PnL and win rate than Fear days, but a t-test
-   comparing Fear vs Greed PnL gives **p = 0.32** — not statistically
-   significant. Traders are not reliably more or less profitable simply
-   because the market is fearful or greedy.
+- Greed days have slightly better average PnL and win rate, but the t-test came back with p = 0.32, which means this difference isn't statistically significant. Sentiment by itself doesn't strongly predict how profitable a trade will be.
+- Trade sizes are much bigger during Fear, about 57% larger than during Greed, even though Fear trades aren't more profitable. Traders seem to take on more risk when the market is scared, not when it's confident.
+- PnL is very concentrated across accounts. The best account made about $2.14M total, the worst lost around $168K. Individual trading skill matters a lot more than sentiment.
+- Some coins show clearer patterns: @107 drives most of the Greed-day profit, while HYPE, ETH, SOL and BTC contribute more on Fear days.
+- Merge quality was good, only 6 trades out of 211,224 had no matching sentiment date.
 
-2. **Traders take on significantly more risk during Fear.** Average trade
-   size is ~57% larger during Fear ($7,182) than during Greed ($4,574),
-   despite Fear trades not being more profitable. This suggests risk-taking
-   increases with fear rather than with confidence — a pattern worth
-   flagging for risk management.
+## Takeaway
 
-3. **Performance is highly concentrated across accounts**, far more than
-   it varies by sentiment. The top account earned ~$2.14M in total closed
-   PnL; the worst-performing account lost ~$168K. Individual trading skill
-   and positioning dominate any sentiment effect.
+Sentiment doesn't seem to be a reliable signal for predicting whether a trade will be profitable, but it does seem to affect how much risk traders take. A more useful strategy than trying to trade based on sentiment direction might be to reduce position size during Fear periods, since that's when risk-taking goes up without any real improvement in outcomes.
 
-4. **Coin-level differences exist**: the `@107` perp dominates Greed-day
-   profits (~$2.7M total), while HYPE, ETH, SOL, and BTC drive most of the
-   profit generated on Fear days — a possible avenue for coin-specific
-   sentiment strategies.
+## Files
 
-5. **Data quality**: only 6 of 211,224 trades had no matching sentiment
-   date, so the merge is essentially complete and reliable.
-
-## Recommendation
-
-Market-wide Fear/Greed sentiment is not a strong standalone signal for
-directional profitability, but it is a strong signal for **risk-taking
-behavior**. Rather than trying to time direction using sentiment, a more
-robust strategy is to **scale position size down during Fear periods**,
-when traders empirically take on more risk without a corresponding increase
-in edge.
-
-## Files in this repo
-
-- `sentiment_trader_analysis.py` — full analysis pipeline (cleaning,
-  merging, statistics, charts)
-- `merged_trades_sentiment.csv.gz` — the merged trade + sentiment dataset
-  produced by the script, gzip-compressed (9.5MB vs 60MB uncompressed) to
-  stay under GitHub's 25MB web upload limit. Contains all 211,224 rows and
-  every original column — nothing was removed, only compressed.
-  Load it directly with `pd.read_csv('merged_trades_sentiment.csv.gz')`
-  (pandas reads gzipped CSVs natively) or unzip it locally with
-  `gunzip merged_trades_sentiment.csv.gz` to get the plain CSV back.
+- `sentiment_trader_analysis.py` - the analysis script
+- `merged_trades_sentiment.csv.gz` - merged dataset (zipped)
 - `chart_avg_pnl_by_sentiment.png`
 - `chart_win_rate_by_sentiment.png`
 - `chart_daily_pnl_timeline.png`
 - `chart_size_by_sentiment.png`
 
-## How to reproduce
+## Running it yourself
 
 ```bash
 pip install pandas numpy matplotlib seaborn scipy
 python sentiment_trader_analysis.py
 ```
 
-Requires `fear_greed_index.csv` and `historical_data.csv` in the same
-directory. Running the script regenerates a plain, uncompressed
-`merged_trades_sentiment.csv` locally — the `.gz` version in this repo is
-only for storage/upload purposes.
+Needs `fear_greed_index.csv` and `historical_data.csv` in the same folder.
